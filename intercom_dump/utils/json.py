@@ -1,16 +1,21 @@
 from __future__ import absolute_import
 
+from contextlib import contextmanager
 import json
 
 
-def dumps_iterable(iterable):
-    yield u'['
+@contextmanager
+def write_array(stream):
+    def write_item(obj):
+        if write_item._index > 0:
+            stream.write(', ')
+        stream.write(json.dumps(obj))
+        write_item._index += 1
 
+    write_item._index = 0
+
+    stream.write(u'[')
     try:
-        for index, item in enumerate(iterable):
-            if index > 0:
-                yield ', '
-
-            yield json.dumps(item)
+        yield write_item
     finally:
-        yield u']'
+        stream.write(u']')

@@ -1,21 +1,27 @@
 # -*- coding: utf-8 -*-
 
+from gevent import monkey  # noqa
+monkey.patch_all()         # noqa
+
+import logging
+
 import click
+import gevent
 
 from .intercom import resources as _  # noqa
 from .intercom.client import Client
 from .intercom.resource import (
-    iter_objects,
+    prepare_resources,
     registry,
 )
-from .utils.json import dumps_iterable
+from .utils.json import write_array
 
 
 @click.command()
 @click.argument(
     'resources',
     nargs=-1,
-    type=click.Choice(registry.keys()),
+    type=click.Choice(registry.keys() + ['all']),
 )
 @click.option(
     '--app-id',
@@ -32,19 +38,45 @@ from .utils.json import dumps_iterable
     default='json',
     type=click.Choice(('json',)),
 )
-def main(resources, app_id, api_key, format):
+@click.option(
+    '-v',
+    '--verbose',
+    count=True,
+)
+def main(resources, app_id, api_key, format, verbose):
     """
     Dumps intercom objects
     """
+
+    if verbose == 0:
+        log_level = logging.WARN
+    elif verbose == 1:
+        log_level = logging.INFO
+    elif verbose >= 2:
+        log_level = logging.DEBUG
+
+    logging.basicConfig(level=log_level)
 
     if app_id and api_key:
         client = Client(app_id, api_key)
     else:
         raise click.UsageError(u'You must either specify app id and api key')
 
+    if 'all' in resources:
+        resources = registry.keys()
+
     stdout = click.get_text_stream('stdout')
-    for data in dumps_iterable(iter_objects(client, resources)):
-        stdout.write(data)
+    resources = prepare_resources(client, resources)
+
+    with write_array(stdout) as write_item:
+        def write_resource(resource):
+            for obj in resource(client):
+                write_item(obj)
+
+        gevent.joinall([
+            gevent.spawn(write_resource, resource)
+            for resource in resources
+        ])
 
 
 if __name__ == "__main__":

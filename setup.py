@@ -11,6 +11,7 @@ with open('HISTORY.rst') as history_file:
 
 requirements = [
     'Click==6.7',
+    'gevent==1.2.1',
     'requests==2.13.0',
 ]
 

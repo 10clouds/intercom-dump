@@ -2,6 +2,8 @@ import collections
 import functools
 import itertools
 
+import gevent
+
 
 def iter_data(data, name):
     return (obj for obj in data[name])
@@ -13,7 +15,7 @@ def iter_resource(client, name, params=None):
     return iter_data(data, name)
 
 
-def iter_pages(client, name, params=None, next_key='next_url'):
+def iter_pages(client, name, params=None, next_key='next'):
     url = client.build_url(name)
 
     while url:
@@ -27,7 +29,7 @@ def iter_pages(client, name, params=None, next_key='next_url'):
             url = None
 
 
-def iter_paginated_resource(client, name, params=None, next_key='next_url'):
+def iter_paginated_resource(client, name, params=None, next_key='next'):
     for page in iter_pages(client, name, params, next_key):
         for obj in iter_data(page, name):
             yield obj
@@ -61,17 +63,27 @@ def build_resource(name, paginated=True, register=True):
 
 
 def decorate_with_resource(parent, child, key):
+    def decorate_obj(obj, *args):
+        child_args = args + (obj,)
+        child_value = child(*child_args)
+        obj[key] = (
+            list(child_value)
+            if isinstance(child_value, collections.Iterator)
+            else child_value
+        )
+        return obj
+
     @functools.wraps(parent)
-    def wrapper(client, *args):
-        for obj in parent(client, *args):
-            child_args = args + (obj,)
-            child_value = child(client, *child_args)
-            obj[key] = (
-                list(child_value)
-                if isinstance(child_value, collections.Iterator)
-                else child_value
-            )
-            yield obj
+    def wrapper(*args):
+        tasks = [
+            gevent.spawn(decorate_obj, obj, *args)
+            for obj in parent(*args)
+        ]
+
+        gevent.joinall(tasks)
+
+        for task in tasks:
+            yield task.value
 
     return wrapper
 
@@ -95,7 +107,7 @@ def prepare_resources(client, resource_names):
             resources_by_name[name] = resource
             roots.add(name)
 
-    return [resources_by_name[name](client) for name in roots]
+    return [resources_by_name[name] for name in roots]
 
 
 def iter_objects(client, resource_names):
