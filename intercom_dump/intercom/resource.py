@@ -1,89 +1,104 @@
-BASE_URL = 'https://api.intercom.io'
+import collections
+import functools
+import itertools
 
-LIST_URL_TEMPLATE = u'/'.join((BASE_URL, '{name}'))
-RETRIEVE_URL_TEMPLATE = u'/'.join((BASE_URL, '{name}', '{id}'))
+
+def iter_data(data, name):
+    return (obj for obj in data[name])
 
 
-class Resource(object):
-    name = None
+def iter_resource(client, name, params=None):
+    url = client.build_url(name)
+    data = client.get(url, params).json()
+    return iter_data(data, name)
 
-    def __init__(self, client, params=None):
-        self.client = client
-        self.params = params.copy() if params else {}
 
-    def list_url(self):
-        return LIST_URL_TEMPLATE.format(name=self.name)
+def iter_pages(client, name, params=None, next_key='next_url'):
+    url = client.build_url(name)
 
-    def retrieve_url(self, id):
-        return RETRIEVE_URL_TEMPLATE.format(name=self.name, id=id)
+    while url:
+        data = client.get(url, params).json()
+        yield data
 
-    def __iter__(self):
-        response = self.client.get(self.list_url(), self.params)
-        data = response.json()
-        objects = data[self.name]
+        try:
+            url = data['pages'][next_key]
+            params = None
+        except KeyError:
+            url = None
 
-        for obj in objects:
+
+def iter_paginated_resource(client, name, params=None, next_key='next_url'):
+    for page in iter_pages(client, name, params, next_key):
+        for obj in iter_data(page, name):
             yield obj
 
 
-class PaginatedMixin(object):
-    pages_next_key = 'next'
-
-    def __iter__(self):
-        response = self.client.get(self.list_url(), self.params)
-
-        while response:
-            data = response.json()
-            objects = data[self.name]
-
-            for obj in objects:
-                yield obj
-
-            try:
-                next_url = data['pages'][self.pages_next_key]
-            except KeyError:
-                next_url = None
-
-            response = self.client.get(next_url) if next_url else None
+registry = {}
 
 
-class ScrollableMixin(object):
-    def scroll_url(self):
-        return u'/'.join((self.list_url(), 'scroll'))
+def register(name=None):
+    def decorator(fun):
+        registry[name or fun.__name__] = fun
+        return fun
 
-    def __iter__(self):
-        url = self.scroll_url()
-        params = self.params.copy()
-        response = self.client.get(url, params)
-
-        while response:
-            data = response.json()
-
-            if 'scroll_param' in data:
-                params['scroll_param'] = data['scroll_param']
-            else:
-                raise TypeError(
-                    '{} resource is not scrollable'
-                    .format(type(self).__name__)
-                )
-
-            objects = data[self.name]
-
-            for obj in objects:
-                yield obj
-
-            response = self.client.get(url, params) if objects else None
+    return decorator
 
 
-class WithNestedMixin(object):
-    def __init__(self, *args, **kwargs):
-        nested_classes = kwargs.pop('nested_classes', ())
-        super(WithNestedMixin, self).__init__(*args, **kwargs)
-        self.nested_classes = nested_classes
+def build_resource(name, paginated=True, register=True):
+    if paginated:
+        def resource(client):
+            return iter_paginated_resource(client, name)
+    else:
+        def resource(client):
+            return iter_resource(client, name)
 
-    def __iter__(self):
-        for obj in super(WithNestedMixin, self).__iter__():
-            for resource_cls in self.nested_classes:
-                resource = resource_cls(self.client, obj)
-                obj[resource.name] = list(resource)
+    if register:
+        registry_name = register if isinstance(register, basestring) else name
+        registry[registry_name] = resource
+
+    resource.__name__ = name
+    return resource
+
+
+def decorate_with_resource(parent, child, key):
+    @functools.wraps(parent)
+    def wrapper(client, *args):
+        for obj in parent(client, *args):
+            child_args = args + (obj,)
+            child_value = child(client, *child_args)
+            obj[key] = (
+                list(child_value)
+                if isinstance(child_value, collections.Iterator)
+                else child_value
+            )
             yield obj
+
+    return wrapper
+
+
+def prepare_resources(client, resource_names):
+    resource_names = sorted(resource_names)
+    resources_by_name = {}
+    roots = set()
+
+    for name in resource_names:
+        resource = registry.get(name)
+        parent_name, _, parent_key = name.rpartition('.')
+
+        if parent_name:
+            resources_by_name[parent_name] = decorate_with_resource(
+                resources_by_name[parent_name],
+                resource,
+                parent_key,
+            )
+        else:
+            resources_by_name[name] = resource
+            roots.add(name)
+
+    return [resources_by_name[name](client) for name in roots]
+
+
+def iter_objects(client, resource_names):
+    return itertools.chain.from_iterable(
+        prepare_resources(client, resource_names),
+    )

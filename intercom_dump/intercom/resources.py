@@ -1,60 +1,43 @@
 from .resource import (
-    PaginatedMixin,
-    Resource,
-    WithNestedMixin,
+    build_resource,
+    iter_paginated_resource,
+    register,
 )
 
 
-class Users(WithNestedMixin, PaginatedMixin, Resource):
-    name = 'users'
+users = build_resource('users')
 
 
-class PerUserMixin(object):
-    def __init__(self, client, user, params=None):
-        super(PerUserMixin, self).__init__(client, params=params)
-
-        user_id = user['user_id'] if isinstance(user, dict) else user
-
-        self.params.update(
-            type='user',
-            user_id=user_id,
-        )
+def user_filter(user):
+    user_id = user['user_id'] if isinstance(user, dict) else user
+    return dict(type='user', user_id=user_id)
 
 
-class UserNotes(PerUserMixin, PaginatedMixin, Resource):
-    name = 'notes'
+@register('users.notes')
+def user_notes(client, user):
+    return iter_paginated_resource(client, 'notes', user_filter(user))
 
 
-class UserEvents(PerUserMixin, PaginatedMixin, Resource):
-    name = 'events'
-    pages_next_key = 'since'
+@register('users.events')
+def user_events(client, user):
+    return iter_paginated_resource(
+        client,
+        'events',
+        user_filter(user),
+        next_key='since',
+    )
 
 
-class Contacts(PaginatedMixin, Resource):
-    name = 'contacts'
+admins = build_resource('admins')
+contacts = build_resource('contacts', register='leads')
+companies = build_resource('companies')
+tags = build_resource('tags')
+segments = build_resource('segments')
+conversations = build_resource('conversations')
 
 
-Leads = Contacts
-
-
-class Companies(PaginatedMixin, Resource):
-    name = 'companies'
-
-
-class Tags(PaginatedMixin, Resource):
-    name = 'tags'
-
-
-class Segments(PaginatedMixin, Resource):
-    name = 'segments'
-
-
-class Conversations(PaginatedMixin, Resource):
-    name = 'conversations'
-
-
-class ConversationsWithParts(Conversations):
-    def __iter__(self):
-        for conversation in super(Conversations, self).__iter__():
-            conversation_url = self.retrieve_url(conversation['id'])
-            yield self.client.get(conversation_url).json()
+@register('conversations.conversation_parts')
+def conversation_parts(client, conversation):
+    url = client.build_url('conversations', conversation['id'])
+    conversation = client.get(url).json()
+    return conversation['conversation_parts']['conversation_parts']
