@@ -3,6 +3,7 @@ import functools
 import itertools
 
 import gevent
+import six
 
 
 def iter_data(data, name):
@@ -55,7 +56,11 @@ def build_resource(name, paginated=True, register=True):
             return iter_resource(client, name)
 
     if register:
-        registry_name = register if isinstance(register, basestring) else name
+        registry_name = (
+            register
+            if isinstance(register, six.string_types)
+            else name
+        )
         registry[registry_name] = resource
 
     resource.__name__ = name

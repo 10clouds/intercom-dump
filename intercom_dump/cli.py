@@ -7,6 +7,7 @@ import logging
 
 import click
 import gevent
+import six
 
 from .intercom import resources as _  # noqa
 from .intercom.client import Client
@@ -21,7 +22,7 @@ from .utils.json import write_array
 @click.argument(
     'resources',
     nargs=-1,
-    type=click.Choice(registry.keys() + ['all']),
+    type=click.Choice(list(six.iterkeys(registry)) + ['all']),
 )
 @click.option(
     '--app-id',
@@ -63,7 +64,7 @@ def main(resources, app_id, api_key, format, verbose):
         raise click.UsageError(u'You must either specify app id and api key')
 
     if 'all' in resources:
-        resources = registry.keys()
+        resources = list(six.iterkeys(registry))
 
     stdout = click.get_text_stream('stdout')
     resources = prepare_resources(client, resources)
