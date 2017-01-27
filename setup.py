@@ -13,6 +13,7 @@ requirements = [
     'Click==6.7',
     'gevent==1.2.1',
     'requests==2.13.0',
+    'six==1.10.0',
 ]
 
 test_requirements = [
