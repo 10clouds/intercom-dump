@@ -12,9 +12,9 @@ To install Intercom data dumper, run this command in your terminal:
 
 .. code-block:: console
 
-    $ pip install intercom_dump
+    $ pip install intercom-dump
 
-This is the preferred method to install Intercom data dumper, as it will always install the most recent stable release. 
+This is the preferred method to install Intercom data dumper, as it will always install the most recent stable release.
 
 If you don't have `pip`_ installed, this `Python installation guide`_ can guide
 you through the process.
@@ -32,13 +32,13 @@ You can either clone the public repository:
 
 .. code-block:: console
 
-    $ git clone git://github.com/mskrajnowski/intercom_dump
+    $ git clone git://github.com/10clouds/intercom-dump
 
 Or download the `tarball`_:
 
 .. code-block:: console
 
-    $ curl  -OL https://github.com/mskrajnowski/intercom_dump/tarball/master
+    $ curl  -OL https://github.com/10clouds/intercom-dump/tarball/master
 
 Once you have a copy of the source, you can install it with:
 
@@ -47,5 +47,5 @@ Once you have a copy of the source, you can install it with:
     $ python setup.py install
 
 
-.. _Github repo: https://github.com/mskrajnowski/intercom_dump
-.. _tarball: https://github.com/mskrajnowski/intercom_dump/tarball/master
+.. _Github repo: https://github.com/10clouds/intercom-dump
+.. _tarball: https://github.com/10clouds/intercom-dump/tarball/master

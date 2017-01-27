@@ -21,26 +21,27 @@ test_requirements = [
 setup(
     name='intercom-dump',
     version='0.1.0',
-    description="Python commandline application for dumping all intercom data to a sqlite database",
+    description="Python CLI app for dumping all intercom data to a json file",
     long_description=readme + '\n\n' + history,
     author="Marek Skrajnowski",
     author_email='marek.skrajnowski@10clouds.com',
-    url='https://github.com/mskrajnowski/intercom_dump',
+    url='https://github.com/10clouds/intercom-dump',
     packages=[
         'intercom_dump',
     ],
-    package_dir={'intercom_dump':
-                 'intercom_dump'},
+    package_dir={
+        'intercom_dump': 'intercom_dump',
+    },
     entry_points={
         'console_scripts': [
-            'intercom_dump=intercom_dump.cli:main'
+            'intercom_dump=intercom_dump.cli:main',
         ]
     },
     include_package_data=True,
     install_requires=requirements,
     license="MIT license",
     zip_safe=False,
-    keywords='intercom_dump',
+    keywords='intercom backup dump cli',
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Intended Audience :: Developers',
