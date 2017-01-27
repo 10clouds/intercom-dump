@@ -11,6 +11,7 @@ env:
   - TOXENV=py27
 #     gevent requires pypy >= 2.6.1, travis runs on 2.5
 #   - TOXENV=pypy
+  - TOXENV=flake8
 
 # command to install dependencies, e.g. pip install -r requirements.txt --use-mirrors
 install: pip install -U tox
