@@ -61,7 +61,9 @@ def main(resources, app_id, api_key, format, verbose):
     if app_id and api_key:
         client = Client(app_id, api_key)
     else:
-        raise click.UsageError(u'You must either specify app id and api key')
+        raise click.UsageError(
+            u'You must specify intercom app id and api key'
+        )
 
     if 'all' in resources:
         resources = list(six.iterkeys(registry))
